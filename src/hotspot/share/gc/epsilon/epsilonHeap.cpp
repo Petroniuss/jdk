@@ -29,7 +29,7 @@
 #include "compiler/oopMap.hpp"
 #include "gc/shared/strongRootsScope.hpp"
 #include "gc/shared/weakProcessor.hpp"
-#include "gc/shared/preservedMarks.hpp"
+#include "gc/shared/preservedMarks.inline.hpp"
 #include "gc/shared/gcArguments.hpp"
 #include "gc/shared/locationPrinter.inline.hpp"
 #include "gc/shared/gcTraceTime.inline.hpp"
@@ -40,6 +40,7 @@
 #include "memory/allocation.hpp"
 #include "memory/metaspaceUtils.hpp"
 #include "memory/resourceArea.hpp"
+#include "memory/iterator.inline.hpp"
 #include "memory/universe.hpp"
 #include "runtime/atomic.hpp"
 #include "runtime/globals.hpp"
@@ -129,7 +130,6 @@ EpsilonHeap* EpsilonHeap::heap() {
 }
 
 HeapWord* EpsilonHeap::allocate_work(size_t size) {
-  assert(is_object_aligned(size), "Allocation size should be aligned: " SIZE_FORMAT, size);
 
   HeapWord* res = NULL;
   while (true) {
@@ -380,21 +380,21 @@ void EpsilonHeap::print_metaspace_info() const {
     log_info(gc, metaspace)("Metaspace: no reliable data");
   }
 }
-
-
-// ------------------ EXPERIMENTAL MARK-COMPACT -------------------------------
 //
-// This implements a trivial Lisp2-style sliding collector:
-//     https://en.wikipedia.org/wiki/Mark-compact_algorithm#LISP2_algorithm
 //
-// The goal for this implementation is to be as simple as possible, ignoring
-// non-trivial performance optimizations. This collector does not implement
-// reference processing: no soft/weak/phantom/finalizeable references are ever
-// cleared. It also does not implement class unloading and other runtime
-// cleanups.
+//// ------------------ EXPERIMENTAL MARK-COMPACT -------------------------------
+////
+//// This implements a trivial Lisp2-style sliding collector:
+////     https://en.wikipedia.org/wiki/Mark-compact_algorithm#LISP2_algorithm
+////
+//// The goal for this implementation is to be as simple as possible, ignoring
+//// non-trivial performance optimizations. This collector does not implement
+//// reference processing: no soft/weak/phantom/finalizeable references are ever
+//// cleared. It also does not implement class unloading and other runtime
+//// cleanups.
+////
 //
-
-// VM operation that executes collection cycle under safepoint
+//// VM operation that executes collection cycle under safepoint
 class VM_EpsilonCollect: public VM_Operation {
 private:
   const GCCause::Cause _cause;
@@ -439,6 +439,7 @@ public:
 
 size_t VM_EpsilonCollect::_last_used = 0;
 
+
 void EpsilonHeap::vmentry_collect(GCCause::Cause cause) {
   VM_EpsilonCollect vmop(cause);
   VMThread::execute(&vmop);
@@ -477,6 +478,7 @@ void EpsilonHeap::do_roots(OopClosure* cl, bool everything) {
 //  ObjectSynchronizer::oops_do(cl); // OopStorage
 //  SystemDictionary::oops_do(cl); // OopStorage
   ClassLoaderDataGraph::cld_do(&clds);
+
   OopStorageSet::strong_oops_do(cl);
   JNIHandles::oops_do(cl);
   WeakProcessor::oops_do(cl);
@@ -526,7 +528,8 @@ private:
 public:
   EpsilonScanOopClosure(EpsilonMarkStack* stack, MarkBitMap* bitmap) :
           _stack(stack), _bitmap(bitmap) {}
-  virtual void do_oop(oop* p)       { do_oop_work(p); }
+
+  virtual void do_oop(oop* p)       { do_oop_work<oop>(p); }
   virtual void do_oop(narrowOop* p) { do_oop_work(p); }
 };
 
@@ -540,7 +543,7 @@ public:
           _compact_point(start),
           _preserved_marks(pm) {}
 
-  void do_object(oop obj) {
+  virtual void do_object(oop obj) {
     // Record the new location of the object: it is current compaction point.
     // If object stays at the same location (which is true for objects in
     // dense prefix, that we would normally get), do not bother recording the
@@ -610,8 +613,7 @@ public:
       oop fwd = obj->forwardee();
       assert(fwd != NULL, "just checking");
       Copy::aligned_conjoint_words((HeapWord*)obj, (HeapWord*)fwd, obj->size());
-//      fwd->iit_mark_raw();
-        fwd->init_mark();
+      fwd->init_mark();
       _moved++;
     }
   }
@@ -651,7 +653,11 @@ public:
   virtual void do_oop(narrowOop* p) { do_oop_work(p); }
 };
 
+
+
 void EpsilonHeap::entry_collect(GCCause::Cause cause) {
+  log_info(gc)("[Test] Entry_collect");
+
   GCIdMark mark;
   GCTraceTime(Info, gc) time("Lisp2-style Mark-Compact", NULL, cause, true);
 
