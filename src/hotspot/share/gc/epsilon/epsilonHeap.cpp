@@ -415,16 +415,17 @@ public:
     // need to handle allocation failure that comes without allocations since
     // last complete GC. Waiting for 1% of heap allocated before starting next
     // GC seems to resolve most races.
+    size_t id = Atomic::load_acquire(&_last_used);
+
     Heap_lock->lock();
-    size_t used = _heap->used();
-    size_t capacity = _heap->capacity();
-    size_t allocated = used > _last_used ? used - _last_used : 0;
-    if (_cause != GCCause::_allocation_failure || allocated > capacity / 100) {
-      return true;
-    } else {
+
+    if (id < Atomic::load_acquire(&_last_used)) {
       Heap_lock->unlock();
       return false;
     }
+
+    Atomic::inc(&_last_used);
+    return true;
   }
 
   virtual void doit() {
@@ -456,7 +457,7 @@ HeapWord* EpsilonHeap::allocate_or_collect_work(size_t size) {
 
 typedef Stack<oop, mtGC> EpsilonMarkStack;
 
-void EpsilonHeap::do_roots(OopClosure* cl, bool everything) {
+void EpsilonHeap::do_roots(OopClosure *cl) {
   // Need to tell runtime we are about to walk the roots with 1 thread
   StrongRootsScope scope(1);
 
@@ -477,12 +478,15 @@ void EpsilonHeap::do_roots(OopClosure* cl, bool everything) {
 //  JvmtiExport::oops_do(cl); // OopsStorage
 //  ObjectSynchronizer::oops_do(cl); // OopStorage
 //  SystemDictionary::oops_do(cl); // OopStorage
+//  JNIHandles::oops_do(cl); // Handled by OopsStorage?
   ClassLoaderDataGraph::cld_do(&clds);
 
   OopStorageSet::strong_oops_do(cl);
-  JNIHandles::oops_do(cl);
-  WeakProcessor::oops_do(cl);
   Threads::possibly_parallel_oops_do(false, cl, &blobs);
+//  WeakProcessor::oops_do(cl); // Doesn't work properly!
+  for (auto id : EnumRange<OopStorageSet::WeakId>()) {
+    OopStorageSet::storage(id)->oops_do(cl);
+  }
 }
 
 // Walk the marking bitmap and call object closure on every marked object.

@@ -152,12 +152,12 @@ private:
 
   void walk_bitmap(ObjectClosure* cl);
 
-  void do_roots(OopClosure* cl, bool everything);
+  void do_roots(OopClosure *cl);
   void process_roots(OopClosure* cl) {
-    do_roots(cl, false);
+    do_roots(cl);
   }
   void process_all_roots(OopClosure* cl) {
-    do_roots(cl, true);
+    do_roots(cl);
   }
 
 };
