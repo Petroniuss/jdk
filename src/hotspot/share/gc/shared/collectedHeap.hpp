@@ -167,6 +167,7 @@ class CollectedHeap : public CHeapObj<mtInternal> {
     Parallel,
     G1,
     Epsilon,
+    Theta,
     Z,
     Shenandoah
   };

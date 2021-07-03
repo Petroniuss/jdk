@@ -149,6 +149,25 @@
 #define NOT_EPSILONGC_RETURN_(code) { return code; }
 #endif // INCLUDE_EPSILONGC
 
+#ifndef INCLUDE_THETAGC
+#define INCLUDE_THETAGC 1
+#endif
+
+#if INCLUDE_THETAGC
+#define THETAGC_ONLY(x) x
+#define THETAGC_ONLY_ARG(arg) arg,
+#define NOT_THETAGC(x)
+#define NOT_THETAGC_RETURN        /* next token must be ; */
+#define NOT_THETAGC_RETURN_(code) /* next token must be ; */
+#else
+#define THETAGC_ONLY(x)
+#define THETAGC_ONLY_ARG(arg)
+#define NOT_THETAGC(x) x
+#define NOT_THETAGC_RETURN        {}
+#define NOT_THETAGC_RETURN_(code) { return code; }
+#endif
+
+
 #ifndef INCLUDE_G1GC
 #define INCLUDE_G1GC 1
 #endif // INCLUDE_G1GC
