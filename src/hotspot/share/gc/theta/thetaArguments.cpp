@@ -21,6 +21,8 @@ void ThetaArguments::initialize() {
     assert(UseThetaGC, "Sanity");
 }
 
+
+
 CollectedHeap* ThetaArguments::create_heap() {
     return new ThetaHeap();
 }
