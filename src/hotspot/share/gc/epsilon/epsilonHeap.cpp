@@ -839,7 +839,7 @@ void EpsilonHeap::entry_collect(GCCause::Cause cause) {
     }
   }
 
-  size_t stat_reachable = stat_reachable_roots; stat_reachable_heap;
+  size_t stat_reachable = stat_reachable_roots;
   log_info(gc)("GC Stats: " SIZE_FORMAT " (%.2f%%) reachable from roots, " SIZE_FORMAT " (%.2f%%) reachable from heap, "
                SIZE_FORMAT " (%.2f%%) moved, " SIZE_FORMAT " (%.2f%%) markwords preserved",
                stat_reachable_roots, 100.0 * stat_reachable_roots / stat_reachable,
