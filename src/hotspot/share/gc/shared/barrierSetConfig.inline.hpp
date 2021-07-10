@@ -33,6 +33,9 @@
 #if INCLUDE_EPSILONGC
 #include "gc/epsilon/epsilonBarrierSet.hpp"
 #endif
+#if INCLUDE_THETAGC
+#include "gc/theta/thetaBarrierSet.hpp"
+#endif
 #if INCLUDE_G1GC
 #include "gc/g1/g1BarrierSet.inline.hpp"
 #endif
